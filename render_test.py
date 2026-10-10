@@ -109,7 +109,9 @@ def main():
         xi = np.clip(px.astype(np.int32), 0, W - 1)
         yi = np.clip(py.astype(np.int32), 0, H - 1)
         np.add.at(canvas, (yi, xi), 0.85)
-        frame = np.clip(grad * 255 + stars * 255 + canvas[..., None] * np.array([190, 215, 255], dtype=np.float32), 0, 255)
+        base = grad * 255.0 + stars * 255.0
+        frame = np.clip(base[..., None] * np.array([0.55, 0.68, 1.0], dtype=np.float32)
+                        + canvas[..., None] * np.array([190, 215, 255], dtype=np.float32), 0, 255)
         img = Image.fromarray(frame.astype(np.uint8))
         # 轻微辉光
         glow = img.filter(ImageFilter.GaussianBlur(6))
