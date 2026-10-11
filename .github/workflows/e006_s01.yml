@@ -29,7 +29,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { pattern: "frames-*", path: frames, merge-multiple: true }
-      - run: sudo apt-get install -y -qq ffmpeg > /dev/null
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q numpy && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - run: cd e006 && python music.py && ffmpeg -y -loglevel error -i music_v1.wav -t 22 -af afade=t=out:st=21:d=1 -b:a 160k music_0_22.mp3
       - run: |
           ls frames | wc -l
           ffmpeg -y -loglevel error -framerate 24 -i frames/f%05d.jpg -i e006/music_0_22.mp3 -c:v libx264 -pix_fmt yuv420p -crf 18 -preset slow -c:a aac -b:a 160k -shortest E006_S01-S03_preview.mp4
