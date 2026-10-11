@@ -1,0 +1,38 @@
+name: e006-s01-s03
+on:
+  workflow_dispatch:
+jobs:
+  frames:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q numpy pillow colour-science
+      - name: fonts
+        run: |
+          mkdir -p fonts
+          for f in Bold Regular; do curl -sL -o fonts/NotoSansCJKsc-$f.otf https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-$f.otf; done
+          ls -la fonts
+      - name: render
+        env: { OBS7_FONTS: "${{ github.workspace }}/fonts" }
+        run: cd e006 && python anim_s01_s03.py ${{ matrix.chunk }} 12 ../frames 1.0 | tail -2
+      - uses: actions/upload-artifact@v4
+        with: { name: "frames-${{ matrix.chunk }}", path: frames/, retention-days: 3 }
+  encode:
+    needs: frames
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: "frames-*", path: frames, merge-multiple: true }
+      - run: sudo apt-get install -y -qq ffmpeg > /dev/null
+      - run: |
+          ls frames | wc -l
+          ffmpeg -y -loglevel error -framerate 24 -i frames/f%05d.jpg -i e006/music_0_22.mp3 -c:v libx264 -pix_fmt yuv420p -crf 18 -preset slow -c:a aac -b:a 160k -shortest E006_S01-S03_preview.mp4
+          ls -la E006_S01-S03_preview.mp4
+      - uses: actions/upload-artifact@v4
+        with: { name: E006_S01-S03_preview, path: E006_S01-S03_preview.mp4, retention-days: 7 }
