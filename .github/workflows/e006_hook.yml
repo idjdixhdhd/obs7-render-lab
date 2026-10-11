@@ -1,0 +1,41 @@
+name: e006-hook
+on:
+  workflow_dispatch:
+jobs:
+  frames:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chunk: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q numpy pillow colour-science
+      - name: fonts
+        run: |
+          mkdir -p fonts
+          for f in Bold Regular; do curl -sL -o fonts/NotoSansCJKsc-$f.otf https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-$f.otf; done
+      - name: render
+        env: { OBS7_FONTS: "${{ github.workspace }}/fonts" }
+        run: cd e006 && python anim_hook.py ${{ matrix.chunk }} 16 ../frames | tail -1
+      - uses: actions/upload-artifact@v4
+        with: { name: "hk-${{ matrix.chunk }}", path: frames/, retention-days: 3 }
+  encode:
+    needs: frames
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: "hk-*", path: frames, merge-multiple: true }
+      - run: sudo apt-get install -y -qq ffmpeg > /dev/null
+      - name: mix and encode
+        run: |
+          curl -sL -o music.mp3 "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Volatile%20Reaction.mp3"
+          ffmpeg -y -loglevel error -ss 22.7 -t 14.5 -i music.mp3 -i e006/hook_1.mp3 -i e006/hook_2.mp3 -i e006/hook_3.mp3 -filter_complex \
+            "[0:a]volume='if(lt(t,10.4),0.42,0.16)':eval=frame,afade=t=out:st=13.5:d=1[m];[1:a]adelay=150|150,volume=1.6[v1];[2:a]adelay=7400|7400,volume=1.6[v2];[3:a]adelay=10600|10600,volume=1.6[v3];[m][v1][v2][v3]amix=inputs=4:normalize=0,alimiter=limit=0.95[a]" \
+            -map "[a]" -ar 44100 -ac 2 mix.wav
+          ffmpeg -y -loglevel error -framerate 24 -i frames/f%05d.jpg -i mix.wav -c:v libx264 -pix_fmt yuv420p -crf 18 -preset slow -c:a aac -b:a 192k -shortest E006_hook_v2.mp4
+          ls -la E006_hook_v2.mp4
+      - uses: actions/upload-artifact@v4
+        with: { name: E006_hook_v2, path: E006_hook_v2.mp4, retention-days: 7 }
